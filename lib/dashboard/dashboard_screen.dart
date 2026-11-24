@@ -1,4 +1,8 @@
+
 import 'package:flutter/material.dart';
+
+// ───────────────────────── Couleurs ─────────────────────────
+
 class AppColors {
   AppColors._();
 
@@ -15,13 +19,15 @@ class AppColors {
   static const textSecondary = Color(0xFF7B8495);
 }
 
-// ───────────────────────── Modèle + données simulées ─────────────────────────
+// ───────────────────────── Modèle serveur ─────────────────────────
+
 enum ServerStatus {
   online('Online', AppColors.success),
   warning('Warning', AppColors.warning),
   offline('Offline', AppColors.danger);
 
   const ServerStatus(this.label, this.color);
+
   final String label;
   final Color color;
 }
@@ -39,6 +45,8 @@ class Server {
   final ServerStatus status;
   final IconData icon;
 }
+
+// ───────────────────────── Données simulées ─────────────────────────
 
 const _servers = <Server>[
   Server(
@@ -61,20 +69,52 @@ const _servers = <Server>[
   ),
 ];
 
-// Historique simulé pour les mini-graphes
-const _cpuHistory = <double>[0.30, 0.38, 0.33, 0.47, 0.41, 0.52, 0.44, 0.42];
-const _ramHistory = <double>[0.55, 0.58, 0.61, 0.59, 0.64, 0.66, 0.67, 0.68];
+const _cpuHistory = <double>[
+  0.30, 0.38, 0.33, 0.47, 0.41, 0.52, 0.44, 0.42
+];
 
-// ───────────────────────── Page principale ─────────────────────────
-class DashboardScreen extends StatelessWidget {
+const _ramHistory = <double>[
+  0.55, 0.58, 0.61, 0.59, 0.64, 0.66, 0.67, 0.68
+];
+
+// ───────────────────────── Dashboard ─────────────────────────
+
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final TextEditingController searchController = TextEditingController();
+
+  String searchQuery = '';
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final warningCount =
         _servers.where((s) => s.status == ServerStatus.warning).length;
 
+    final filteredServers = _servers.where((server) {
+      final query = searchQuery.toLowerCase();
+
+      return server.name.toLowerCase().contains(query) ||
+          server.address.toLowerCase().contains(query) ||
+          server.status.label.toLowerCase().contains(query);
+    }).toList();
+
     return Scaffold(
+      backgroundColor: const Color(0xFFFCF7FF),
+
+      // ───────────────────────── AppBar ─────────────────────────
+
       appBar: AppBar(
         title: const _Brand(),
         actions: [
@@ -90,9 +130,11 @@ class DashboardScreen extends StatelessWidget {
           child: Divider(height: 1, color: AppColors.border),
         ),
       ),
+
+      // ───────────────────────── Body ─────────────────────────
+
       body: SingleChildScrollView(
         child: Center(
-          // Sur grand écran, le contenu reste centré et lisible.
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1200),
             child: Padding(
@@ -101,13 +143,18 @@ class DashboardScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const _HeaderBanner(),
+
                   if (warningCount > 0) ...[
                     const SizedBox(height: 16),
                     _AlertBanner(count: warningCount),
                   ],
+
                   const SizedBox(height: 28),
+
                   const _SectionTitle('System Overview'),
+
                   const SizedBox(height: 16),
+
                   const _ResponsiveWrap(
                     children: [
                       MetricCard(
@@ -137,13 +184,19 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 32),
+
+                  // ───────────────────────── Server Status ─────────────────────────
+
                   Row(
                     children: [
-                      const Expanded(child: _SectionTitle('Server Status')),
+                      const Expanded(
+                        child: _SectionTitle('Server Status'),
+                      ),
                       const SizedBox(width: 12),
                       Text(
-                        '${_servers.length} servers',
+                        '${filteredServers.length} / ${_servers.length} servers',
                         style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 12,
@@ -151,9 +204,98 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 16),
-                  for (final server in _servers) ServerTile(server: server),
+
+                  // ───────────────────────── Barre de recherche ─────────────────────────
+
+                  TextField(
+                    controller: searchController,
+                    onChanged: (value) {
+                      setState(() {
+                        searchQuery = value;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search server or IP address...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                searchController.clear();
+                                setState(() {
+                                  searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(
+                          color: AppColors.border,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(
+                          color: AppColors.border,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(
+                          color: AppColors.primary,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ───────────────────────── Résultats ─────────────────────────
+
+                  if (filteredServers.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(30),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(
+                            Icons.search_off_rounded,
+                            size: 40,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 10),
+                          Text('No server found'),
+                          SizedBox(height: 4),
+                          Text(
+                            'Try another name or IP address.',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    for (final server in filteredServers)
+                      ServerTile(server: server),
+
                   const SizedBox(height: 12),
+
                   const _InfoPanel(),
                 ],
               ),
@@ -165,7 +307,8 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
-// ───────────────────────── Petits blocs ─────────────────────────
+// ───────────────────────── Logo ─────────────────────────
+
 class _Brand extends StatelessWidget {
   const _Brand();
 
@@ -181,7 +324,11 @@ class _Brand extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.dns_rounded, color: Colors.white, size: 22),
+          child: const Icon(
+            Icons.dns_rounded,
+            color: Colors.white,
+            size: 22,
+          ),
         ),
         const SizedBox(width: 12),
         const Flexible(
@@ -199,6 +346,8 @@ class _Brand extends StatelessWidget {
     );
   }
 }
+
+// ───────────────────────── Header ─────────────────────────
 
 class _HeaderBanner extends StatelessWidget {
   const _HeaderBanner();
@@ -240,14 +389,20 @@ class _HeaderBanner extends StatelessWidget {
                 SizedBox(height: 6),
                 Text(
                   'Monitor your server infrastructure',
-                  style: TextStyle(color: Color(0xFFDBEAFE), fontSize: 14),
+                  style: TextStyle(
+                    color: Color(0xFFDBEAFE),
+                    fontSize: 14,
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
@@ -255,7 +410,11 @@ class _HeaderBanner extends StatelessWidget {
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.circle, color: Color(0xFF4ADE80), size: 9),
+                Icon(
+                  Icons.circle,
+                  color: Color(0xFF4ADE80),
+                  size: 9,
+                ),
                 SizedBox(width: 7),
                 Text(
                   'Live Demo',
@@ -274,6 +433,8 @@ class _HeaderBanner extends StatelessWidget {
   }
 }
 
+// ───────────────────────── Alert ─────────────────────────
+
 class _AlertBanner extends StatelessWidget {
   const _AlertBanner({required this.count});
 
@@ -290,7 +451,10 @@ class _AlertBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: AppColors.warning),
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: AppColors.warning,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -320,6 +484,8 @@ class _AlertBanner extends StatelessWidget {
   }
 }
 
+// ───────────────────────── Titre de section ─────────────────────────
+
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
 
@@ -340,6 +506,8 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+// ───────────────────────── Info ─────────────────────────
+
 class _InfoPanel extends StatelessWidget {
   const _InfoPanel();
 
@@ -355,12 +523,18 @@ class _InfoPanel extends StatelessWidget {
       ),
       child: const Row(
         children: [
-          Icon(Icons.info_outline_rounded, color: AppColors.primary),
+          Icon(
+            Icons.info_outline_rounded,
+            color: AppColors.primary,
+          ),
           SizedBox(width: 12),
           Expanded(
             child: Text(
               'Demo mode: displayed monitoring values are simulated.',
-              style: TextStyle(color: Color(0xFF1E40AF), fontSize: 13),
+              style: TextStyle(
+                color: Color(0xFF1E40AF),
+                fontSize: 13,
+              ),
             ),
           ),
         ],
@@ -369,13 +543,13 @@ class _InfoPanel extends StatelessWidget {
   }
 }
 
-// ───────────────────────── Grille responsive ─────────────────────────
-// Calcule le nombre de colonnes d'après la place RÉELLE disponible.
-// Plus de largeur passée à la main : le parent décide, l'enfant s'adapte.
+// ───────────────────────── Responsive grille ─────────────────────────
+
 class _ResponsiveWrap extends StatelessWidget {
   const _ResponsiveWrap({required this.children});
 
   final List<Widget> children;
+
   static const double _spacing = 16;
 
   @override
@@ -383,19 +557,25 @@ class _ResponsiveWrap extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final available = constraints.maxWidth;
+
         final columns = available >= 900
             ? 3
             : available >= 560
                 ? 2
                 : 1;
-        final itemWidth = (available - _spacing * (columns - 1)) / columns;
+
+        final itemWidth =
+            (available - _spacing * (columns - 1)) / columns;
 
         return Wrap(
           spacing: _spacing,
           runSpacing: _spacing,
           children: [
             for (final child in children)
-              SizedBox(width: itemWidth, child: child),
+              SizedBox(
+                width: itemWidth,
+                child: child,
+              ),
           ],
         );
       },
@@ -403,7 +583,8 @@ class _ResponsiveWrap extends StatelessWidget {
   }
 }
 
-// ───────────────────────── Carte de métrique ─────────────────────────
+// ───────────────────────── Metric Card ─────────────────────────
+
 class MetricCard extends StatelessWidget {
   const MetricCard({
     super.key,
@@ -486,7 +667,10 @@ class MetricCard extends StatelessWidget {
                 height: 44,
                 width: double.infinity,
                 child: CustomPaint(
-                  painter: _SparklinePainter(data: history!, color: color),
+                  painter: _SparklinePainter(
+                    data: history!,
+                    color: color,
+                  ),
                 ),
               ),
             ],
@@ -509,9 +693,13 @@ class MetricCard extends StatelessWidget {
   }
 }
 
-// Mini-graphe dessiné à la main (aucun package nécessaire).
+// ───────────────────────── Mini graphique ─────────────────────────
+
 class _SparklinePainter extends CustomPainter {
-  const _SparklinePainter({required this.data, required this.color});
+  const _SparklinePainter({
+    required this.data,
+    required this.color,
+  });
 
   final List<double> data;
   final Color color;
@@ -521,21 +709,26 @@ class _SparklinePainter extends CustomPainter {
     if (data.length < 2) return;
 
     final stepX = size.width / (data.length - 1);
+
     final points = [
       for (var i = 0; i < data.length; i++)
-        Offset(i * stepX, size.height - data[i].clamp(0.0, 1.0) * size.height),
+        Offset(
+          i * stepX,
+          size.height - data[i].clamp(0.0, 1.0) * size.height,
+        ),
     ];
 
     final line = Path()..moveTo(points.first.dx, points.first.dy);
+
     for (final p in points.skip(1)) {
       line.lineTo(p.dx, p.dy);
     }
 
-    // Zone colorée sous la courbe
     final area = Path.from(line)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
+
     canvas.drawPath(
       area,
       Paint()
@@ -549,7 +742,6 @@ class _SparklinePainter extends CustomPainter {
         ).createShader(Offset.zero & size),
     );
 
-    // Courbe
     canvas.drawPath(
       line,
       Paint()
@@ -560,8 +752,11 @@ class _SparklinePainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round,
     );
 
-    // Point final
-    canvas.drawCircle(points.last, 3.5, Paint()..color = color);
+    canvas.drawCircle(
+      points.last,
+      3.5,
+      Paint()..color = color,
+    );
   }
 
   @override
@@ -569,9 +764,13 @@ class _SparklinePainter extends CustomPainter {
       old.data != data || old.color != color;
 }
 
-// ───────────────────────── Ligne de serveur ─────────────────────────
+// ───────────────────────── Server Tile ─────────────────────────
+
 class ServerTile extends StatelessWidget {
-  const ServerTile({super.key, required this.server});
+  const ServerTile({
+    super.key,
+    required this.server,
+  });
 
   final Server server;
 
@@ -598,7 +797,10 @@ class ServerTile extends StatelessWidget {
                 color: const Color(0xFFF0F4FA),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(server.icon, color: const Color(0xFF475569)),
+              child: Icon(
+                server.icon,
+                color: const Color(0xFF475569),
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -634,6 +836,8 @@ class ServerTile extends StatelessWidget {
   }
 }
 
+// ───────────────────────── Status Chip ─────────────────────────
+
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.status});
 
@@ -642,7 +846,10 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 7,
+      ),
       decoration: BoxDecoration(
         color: status.color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(20),
@@ -650,7 +857,11 @@ class _StatusChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.circle, size: 8, color: status.color),
+          Icon(
+            Icons.circle,
+            size: 8,
+            color: status.color,
+          ),
           const SizedBox(width: 6),
           Text(
             status.label,
